@@ -37,7 +37,7 @@ PATHBASE = Path(os.path.dirname(__file__))
 METRICS_PATH = Path(PATHBASE / "training_info")
 LOGS_PATH = Path(METRICS_PATH / "logs")
 
-DATA_ROOT = Path(r"C:\Users\asus\rag0nn\sentiment-analysis\data\Affectnet41k")
+DATA_ROOT = Path("/home/enes/Desktop/sentiment-analysis/data/Affectnet41k")
 
 # DATA_ROOT = Path("/content/drive/MyDrive/sentiment/Affectnet41k")
 CSV_PATH = f"{DATA_ROOT}/labels.csv"
@@ -112,20 +112,10 @@ def prepare_dataset_paths(csv_path, data_root_path):
     for pth, label in zip(df["image_path"], labels):
         path = f"{DATA_ROOT}/{pth}"
         image_paths.append(path)
-    # for idx, row in df.iterrows():
-    #     # Görsel yolu oluştur
-    #     subfolder_filename = row['Subfolder_Filename']
-    #     image_path = Path(data_root_path) / 'AffectNet41k_FlameRender_Descriptions_Images' / \
-    #                  'affectnet_41k_AffectOnly' / 'EmocaProcessed_38k' / \
-    #                  'EmocaResized_35k' / 'FLAMEResized' / f"{subfolder_filename}.png"
-        
-    #     # Dosya var mı kontrol et
-    #     if image_path.exists():
-    #         image_paths.append(str(image_path))
-    #         labels.append(int(row['Second Column']))  # Duygu etiketi (0-11)
-    #     else:
-    #         if idx % 1000 == 0:
-    #             logging.warning(f"Dosya bulunamadı: {image_path}")
+        # Dosya var mı kontrol et
+        if not os.path.exists(path):
+            logging.warning(f"Dosya bulunamadı: {pth}")
+
     
     logging.info(f"Mevcut ve erişilebilir örnek: {len(image_paths)}")
     
