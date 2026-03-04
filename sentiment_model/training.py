@@ -14,7 +14,9 @@ os.environ['PYTORCH_ALLOC_CONF'] = 'expandable_segments:True'
 import torch
 import torch.nn as nn
 import torch.optim as optim
+from torch.optim.lr_scheduler import CosineAnnealingLR
 from torch.utils.data import Dataset, DataLoader
+from collections import Counter
 from torchvision import transforms, models
 import pandas as pd
 import numpy as np
@@ -35,15 +37,17 @@ PATHBASE = Path(os.path.dirname(__file__))
 METRICS_PATH = Path(PATHBASE / "training_info")
 LOGS_PATH = Path(METRICS_PATH / "logs")
 
-DATA_ROOT = Path(PATHBASE / "data" / "StableFaceData")
-CSV_PATH = f"{DATA_ROOT}/AffectNet41k_FlameRender_Descriptions_Images/Modified_processed_affectnet_paths.csv"
+DATA_ROOT = Path(r"C:\Users\asus\rag0nn\sentiment-analysis\data\Affectnet41k")
+
+# DATA_ROOT = Path("/content/drive/MyDrive/sentiment/Affectnet41k")
+CSV_PATH = f"{DATA_ROOT}/labels.csv"
 OUTPUT_LAST_MODEL_PATH = Path(PATHBASE / "last.pth")
 OUTPUT_BEST_MODEL_PATH = Path(PATHBASE / "best.pth")
 
 BATCH_SIZE = 24
-NUM_EPOCHS = 22
+NUM_EPOCHS = 24
 LEARNING_RATE = 0.001
-PATIENCE = 8
+PATIENCE = 15
 DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         
 EXTRA_EPOCH_COUNT = 3
@@ -99,29 +103,29 @@ def prepare_dataset_paths(csv_path, data_root_path):
     
     logging.info("[INFO] CSV dosyası yükleniyor...")
     df = pd.read_csv(csv_path)
-    
-    # Sadece FLAMEResized klasöründe mevcut olan görselleri seç
-    df_processed = df[df['In FLAMEResized'] == 1].copy()
-    logging.info(f"Toplam örnek: {len(df)}, İşlenmiş örnek (FLAMEResized): {len(df_processed)}")
-    
+
     # Görsel yolu ve etiketleri hazırla
     image_paths = []
     labels = []
     
-    for idx, row in df_processed.iterrows():
-        # Görsel yolu oluştur
-        subfolder_filename = row['Subfolder_Filename']
-        image_path = Path(data_root_path) / 'AffectNet41k_FlameRender_Descriptions_Images' / \
-                     'affectnet_41k_AffectOnly' / 'EmocaProcessed_38k' / \
-                     'EmocaResized_35k' / 'FLAMEResized' / f"{subfolder_filename}.png"
+    labels = df["label"]
+    for pth, label in zip(df["image_path"], labels):
+        path = f"{DATA_ROOT}/{pth}"
+        image_paths.append(path)
+    # for idx, row in df.iterrows():
+    #     # Görsel yolu oluştur
+    #     subfolder_filename = row['Subfolder_Filename']
+    #     image_path = Path(data_root_path) / 'AffectNet41k_FlameRender_Descriptions_Images' / \
+    #                  'affectnet_41k_AffectOnly' / 'EmocaProcessed_38k' / \
+    #                  'EmocaResized_35k' / 'FLAMEResized' / f"{subfolder_filename}.png"
         
-        # Dosya var mı kontrol et
-        if image_path.exists():
-            image_paths.append(str(image_path))
-            labels.append(int(row['Second Column']))  # Duygu etiketi (0-11)
-        else:
-            if idx % 1000 == 0:
-                logging.warning(f"Dosya bulunamadı: {image_path}")
+    #     # Dosya var mı kontrol et
+    #     if image_path.exists():
+    #         image_paths.append(str(image_path))
+    #         labels.append(int(row['Second Column']))  # Duygu etiketi (0-11)
+    #     else:
+    #         if idx % 1000 == 0:
+    #             logging.warning(f"Dosya bulunamadı: {image_path}")
     
     logging.info(f"Mevcut ve erişilebilir örnek: {len(image_paths)}")
     
@@ -170,6 +174,38 @@ def split_dataset(image_paths, labels, train_ratio=0.7, val_ratio=0.15, test_rat
     logging.info(f"  - Test: {len(test_paths)} örnek ({test_ratio*100:.1f}%)")
     
     return train_paths, train_labels, val_paths, val_labels, test_paths, test_labels
+
+def compute_class_weights(labels, num_classes=NUM_EMOTIONS, device=DEVICE):
+    """
+    Sınıf ağırlıklarını hesapla (inverse frequency).
+    Az temsil edilen sınıflara daha yüksek ağırlık verir.
+    
+    Args:
+        labels: Eğitim etiketleri
+        num_classes: Toplam sınıf sayısı
+        device: Torch cihazı
+    
+    Returns:
+        torch.Tensor: Her sınıf için ağırlık tensörü
+    """
+    counter = Counter(labels)
+    total = sum(counter.values())
+    
+    weights = []
+    for cls_id in range(num_classes):
+        count = counter.get(cls_id, 1)  # 0 bölme hatası önlemek için en az 1
+        weight = total / (num_classes * count)
+        weights.append(weight)
+    
+    weights_tensor = torch.FloatTensor(weights).to(device)
+    
+    logging.info("Sınıf Ağırlıkları (Weighted CrossEntropy):")
+    for cls_id in range(num_classes):
+        count = counter.get(cls_id, 0)
+        logging.info(f"  Sınıf {cls_id} ({EMOTION_DICT.get(cls_id, '?')}): "
+                     f"örnek={count}, ağırlık={weights_tensor[cls_id]:.4f}")
+    
+    return weights_tensor
 
 # VERİSETİ
 
@@ -317,13 +353,14 @@ def validate(model, val_loader, criterion, device):
     return avg_loss, macro_f1
 
 
-def save_checkpoint(checkpoint_path, model, optimizer, epoch, best_val_f1, 
+def save_checkpoint(checkpoint_path, model, optimizer, scheduler, epoch, best_val_f1, 
                    train_losses, train_f1s, val_losses, val_f1s):
-    """Checkpoint'i kaydet (model + optimizer + geçmiş)"""
+    """Checkpoint'i kaydet (model + optimizer + scheduler + geçmiş)"""
     torch.save({
         'epoch': epoch,
         'model_state_dict': model.state_dict(),
         'optimizer_state_dict': optimizer.state_dict(),
+        'scheduler_state_dict': scheduler.state_dict(),
         'best_val_f1': best_val_f1,
         'train_losses': train_losses,
         'train_f1s': train_f1s,
@@ -333,7 +370,7 @@ def save_checkpoint(checkpoint_path, model, optimizer, epoch, best_val_f1,
     logging.debug(f"[INFO] Checkpoint kaydedildi: {checkpoint_path} (Epoch: {epoch})")
 
 
-def load_checkpoint(checkpoint_path, model, optimizer, device):
+def load_checkpoint(checkpoint_path, model, optimizer, scheduler, device):
     """
     Eğitimin önceki kısımlarından checkpoint yükler. 
     Args:
@@ -375,6 +412,12 @@ def load_checkpoint(checkpoint_path, model, optimizer, device):
             optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
         except Exception as e:
             logging.warning(f"Optimizer state yüklenemedi, yeniden başlanacak: {e}")
+    
+    if 'scheduler_state_dict' in checkpoint:
+        try:
+            scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
+        except Exception as e:
+            logging.warning(f"Scheduler state yüklenemedi, yeniden başlanacak: {e}")
     
     start_epoch = checkpoint.get('epoch', 0)
     best_val_f1 = checkpoint.get('best_val_f1', 0)
@@ -439,6 +482,7 @@ def run():
     
     logging.info(f"\n[YAPILANDIRMA]")
     logging.info(f"  - Cihaz: {DEVICE}")
+    logging.info(f"  - {torch.cuda.get_device_name(0)}")
     logging.info(f"  - CUDA Kullanılabilir: {torch.cuda.is_available()}")
     logging.info(f"  - Batch Size: {BATCH_SIZE}")
     logging.info(f"  - Epoch Sayısı: {NUM_EPOCHS}")
@@ -486,10 +530,16 @@ def run():
     model = create_model(num_classes=NUM_EMOTIONS, pretrained=True)
     model.to(DEVICE)
     
+    # Sınıf ağırlıklarını hesapla
+    class_weights = compute_class_weights(train_labels, num_classes=NUM_EMOTIONS, device=DEVICE)
+    
     # Loss ve Optimizer
-    criterion = nn.CrossEntropyLoss()
+    criterion = nn.CrossEntropyLoss(weight=class_weights)
     optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
-    scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=10, gamma=0.1)
+    scheduler = CosineAnnealingLR(optimizer, T_max=NUM_EPOCHS, eta_min=1e-6)
+    
+    logging.info(f"Loss: Weighted CrossEntropyLoss")
+    logging.info(f"Scheduler: CosineAnnealingLR (T_max={NUM_EPOCHS}, eta_min=1e-6)")
     
     # Checkpoint'ten devam ettir
     train_losses = []
@@ -499,7 +549,7 @@ def run():
     
     if resume_training:
         start_epoch, best_val_f1, train_losses, train_f1s, val_losses, val_f1s = \
-            load_checkpoint(OUTPUT_LAST_MODEL_PATH, model, optimizer, DEVICE)
+            load_checkpoint(OUTPUT_LAST_MODEL_PATH, model, optimizer, scheduler, DEVICE)
     
     # Kaç yeni epoch yapılacağını hesapla (early stopping için)
     num_new_epochs = NUM_EPOCHS - start_epoch
@@ -513,8 +563,9 @@ def run():
         # Epoch range'i kontrol et ve işlemi gerçekleştir
         if epoch < NUM_EPOCHS:
             # Eğitim epoch'unu çalıştır
+            current_lr = optimizer.param_groups[0]['lr']
             logging.info(f"\n{'='*80}")
-            logging.info(f"Epoch {epoch+1}/{NUM_EPOCHS}")
+            logging.info(f"Epoch {epoch+1}/{NUM_EPOCHS}  (LR: {current_lr:.6f})")
             logging.info(f"{'='*80}")
             
             # Eğitim
@@ -535,11 +586,11 @@ def run():
             if val_f1 > best_val_f1:
                 best_val_f1 = val_f1
                 torch.save(model.state_dict(), OUTPUT_BEST_MODEL_PATH)
-                logging.info(f"  ✓ En iyi model kaydedildi (Macro F1: {val_f1:.4f})")
+                logging.info(f"En iyi model kaydedildi (Macro F1: {val_f1:.4f})")
                 patience_counter = 0  # Reset patience counter
             else:
                 patience_counter += 1
-                logging.info(f"  ℹ Patience Counter: {patience_counter}/{PATIENCE}")
+                logging.info(f"Patience Counter: {patience_counter}/{PATIENCE}")
             
             # Early Stopping kontrol (sadece num_new_epochs > 5 ise çalışsın)
             if patience_counter >= PATIENCE and num_new_epochs > 5:
@@ -549,7 +600,7 @@ def run():
                 break
             
             # Checkpoint'i kaydet (devam ettirmek için)
-            save_checkpoint(OUTPUT_LAST_MODEL_PATH, model, optimizer, epoch, best_val_f1,
+            save_checkpoint(OUTPUT_LAST_MODEL_PATH, model, optimizer, scheduler, epoch, best_val_f1,
                            train_losses, train_f1s, val_losses, val_f1s)
             
             # Learning rate schedule
@@ -683,7 +734,7 @@ def run():
     logging.info("\n" + "="*80)
     logging.info(f"EĞITIM SESSION TAMAMLANDI - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     logging.info("="*80)
-    logging.info(f"\n📁 TÜM DOSYALAR:\n  - Log: {log_file}\n  - Özet: {summary_file}\n  - Matrix: {confusion_matrix_file}\n  - Grafik: {training_history_file}\n")
+    logging.info(f"\n TÜM DOSYALAR:\n  - Log: {log_file}\n  - Özet: {summary_file}\n  - Matrix: {confusion_matrix_file}\n  - Grafik: {training_history_file}\n")
     
 if __name__ == "__main__":
     run()

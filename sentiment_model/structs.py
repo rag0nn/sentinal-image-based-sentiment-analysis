@@ -14,10 +14,6 @@ EMOTION_DICT = {
     5: 'Disgust',
     6: 'Anger',
     7: 'Contempt',
-    # 8: 'No Expression',
-    # 9: 'Uncertain',
-    # 10: 'Undefined/Not a Real Human',
-    # 11: 'Indescribable'
 }
 
 EMOTION_DICT_TR = {

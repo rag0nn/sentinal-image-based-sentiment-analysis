@@ -47,11 +47,6 @@ def analyze_image(img_np):
 # ── Routes ──────────────────────────────────────────────
 
 
-@app.route("/")
-def index():
-    return render_template("image.html")
-
-
 @app.route("/sentiment_analysis/image")
 def image_page():
     return render_template("image.html")
