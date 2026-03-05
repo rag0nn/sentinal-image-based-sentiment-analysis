@@ -67,10 +67,6 @@ def setup_logging():
     logger = logging.getLogger()
     logger.setLevel(logging.DEBUG)
     
-    # # Eski handler'ları temizle
-    # for handler in logger.handlers[:]:
-    #     logger.removeHandler(handler)
-    
     # Dosya handler (detaylı)
     file_handler = logging.FileHandler(log_file)
     file_handler.setLevel(logging.DEBUG)
@@ -729,6 +725,7 @@ def run():
     logging.info(f"\n TÜM DOSYALAR:\n  - Log: {log_file}\n  - Özet: {summary_file}\n  - Matrix: {confusion_matrix_file}\n  - Grafik: {training_history_file}\n")
     
 if __name__ == "__main__":
+    
     parser = argparse.ArgumentParser(description="Model training script")
 
     parser.add_argument("--epochs", type=int, default=NUM_EPOCHS,
@@ -743,12 +740,11 @@ if __name__ == "__main__":
     parser.add_argument("--batch_size", type=int, default=BATCH_SIZE,
                         help="Number of training epochs")
     
-    parser.add_argument("--lr", type=int, default=LEARNING_RATE,
+    parser.add_argument("--lr", type=float, default=LEARNING_RATE,
                         help="Number of training epochs")
     
     parser.add_argument("--extra_epochs", type=int, default=EXTRA_EPOCH_COUNT,
                         help="Number of training epochs")
-
 
     args = parser.parse_args()
     
