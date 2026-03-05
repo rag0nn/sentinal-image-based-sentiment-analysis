@@ -29,7 +29,9 @@ from datetime import datetime
 from sklearn.metrics import classification_report, confusion_matrix, f1_score
 import matplotlib.pyplot as plt
 import seaborn as sns
+import argparse
 from structs import *
+
 
 # DEĞİŞKENLER
 
@@ -45,7 +47,7 @@ OUTPUT_LAST_MODEL_PATH = Path(PATHBASE / "last.pth")
 OUTPUT_BEST_MODEL_PATH = Path(PATHBASE / "best.pth")
 
 BATCH_SIZE = 24
-NUM_EPOCHS = 24
+NUM_EPOCHS = 10
 LEARNING_RATE = 0.001
 PATIENCE = 15
 DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -269,7 +271,7 @@ def get_transforms()->Tuple:
 
 def create_model(num_classes=NUM_EMOTIONS, pretrained=True):
     """Resnet odelini oluştur"""
-    model = models.resnet101(pretrained=pretrained)
+    model = models.resnet50(pretrained=pretrained)
     
     # Son katmanı göreve uygun şekilde değiştir
     num_ftrs = model.fc.in_features
@@ -526,7 +528,7 @@ def run():
     # Loss ve Optimizer
     criterion = nn.CrossEntropyLoss(weight=class_weights)
     optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
-    scheduler = CosineAnnealingLR(optimizer, T_max=NUM_EPOCHS, eta_min=1e-6)
+    scheduler = CosineAnnealingLR(optimizer, T_max=NUM_EPOCHS, eta_min=1e-5)
     
     logging.info(f"Loss: Weighted CrossEntropyLoss")
     logging.info(f"Scheduler: CosineAnnealingLR (T_max={NUM_EPOCHS}, eta_min=1e-6)")
@@ -727,4 +729,34 @@ def run():
     logging.info(f"\n TÜM DOSYALAR:\n  - Log: {log_file}\n  - Özet: {summary_file}\n  - Matrix: {confusion_matrix_file}\n  - Grafik: {training_history_file}\n")
     
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Model training script")
+
+    parser.add_argument("--epochs", type=int, default=NUM_EPOCHS,
+                        help="Number of training epochs")
+    
+    parser.add_argument("--input", type=str, required=DATA_ROOT,
+                        help="Input file path")
+    
+    parser.add_argument("--patience", type=int, default=PATIENCE,
+                        help="Number of patience training loops")
+    
+    parser.add_argument("--batch_size", type=int, default=BATCH_SIZE,
+                        help="Number of training epochs")
+    
+    parser.add_argument("--lr", type=int, default=LEARNING_RATE,
+                        help="Number of training epochs")
+    
+    parser.add_argument("--extra_epochs", type=int, default=EXTRA_EPOCH_COUNT,
+                        help="Number of training epochs")
+
+
+    args = parser.parse_args()
+    
+    NUM_EPOCHS = args.epochs
+    DATA_ROOT = args.input
+    PATIENCE = args.patience
+    BATCH_SIZE = args.batch_size
+    LEARNING_RATE = args.lr
+    EXTRA_EPOCH_COUNT = args.extra_epochs
+        
     run()
