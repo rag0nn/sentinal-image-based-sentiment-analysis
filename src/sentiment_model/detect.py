@@ -16,8 +16,8 @@ MODEL_PATH = f"{os.path.dirname(__file__)}/best.pth"
 
 # Yazı parametreleri
 FONT = cv2.FONT_HERSHEY_SIMPLEX
-FONST_SCALE = 1
-FONT_THICKNESS = 2
+FONST_SCALE_WRATIO = 500
+FONT_THICKNESS_WRATIO = 500
 TEXT_COLOR = (255,255,255)  # yeşil
 BG_COLOR = (0, 255, 0)     
 
@@ -117,7 +117,7 @@ class ClassifySentiment:
             annotated_image (np.ndarray): Annotated image
         """
         annotated_image = image.copy()
-        
+        h,w,_ = image.shape
         # Label seçimi
         if lang == "tr":
             label_text = EMOTION_DICT_TR.get(predicted_class, "Unknown")
@@ -128,10 +128,14 @@ class ClassifySentiment:
         text = f"{predicted_class}:{label_text}: {confidence*100:.1f}%"
         
         # Text boyutunu al
-        (text_width, text_height), baseline = cv2.getTextSize(text, FONT, FONST_SCALE, FONT_THICKNESS)
+        
+
+        fontScale = w / FONST_SCALE_WRATIO
+        thickness = int(w / FONT_THICKNESS_WRATIO)
+        (text_width, text_height), baseline = cv2.getTextSize(text, FONT, fontScale, thickness)
         
         # Text kutusu koordinatları
-        x, y = 10, 30  # sol üst köşe
+        x, y = 10, text_height + 4  # sol üst köşe
         cv2.rectangle(
             annotated_image,
             (x - 5, y - text_height - 5),
@@ -146,9 +150,9 @@ class ClassifySentiment:
             text,
             (x, y),
             FONT,
-            FONST_SCALE,
+            fontScale,
             TEXT_COLOR,
-            FONT_THICKNESS,
+            thickness,
             lineType=cv2.LINE_AA
         )
         

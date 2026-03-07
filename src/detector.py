@@ -41,7 +41,7 @@ class Sentinal:
 
         for face in face_images:
             pred, conf = self.sentiment_model.predict(face)
-            sentiment_annotated = self.sentiment_model.visualize(image,pred,conf,"tr")
+            sentiment_annotated = self.sentiment_model.visualize(face,pred,conf,"tr")
             annotations.append(sentiment_annotated)
             predictions.append((pred, conf))
             

@@ -63,13 +63,14 @@ class FaceDetector:
         detection_result
     ) -> np.ndarray:
         annotated_image = image.copy()
+        h,w,_ = image.shape
         
         for detection in detection_result.detections:
             # Draw bounding_box
             bbox = detection.bounding_box
             start_point = bbox.origin_x, bbox.origin_y
             end_point = bbox.origin_x + bbox.width, bbox.origin_y + bbox.height
-            cv2.rectangle(annotated_image, start_point, end_point, TEXT_COLOR, 3)
+            cv2.rectangle(annotated_image, start_point, end_point, TEXT_COLOR, int(h / 200))
 
             # Draw label and score
             category = detection.categories[0]

@@ -1,23 +1,24 @@
 """
-Face Recgonition ve sentiment modellerini 
+Face Recognition ve sentiment modellerini
 config.py'deki verilerin path'lerini kullanarak 
-ve aşağıda tanımlanan MODEL_PATH, TEST_TYPE 
-seçeneklerini kullanarak test eder ve ekranda gösterir.
+ve MODEL_PATH, TEST_TYPE seçeneklerini kullanarak test eder.
 """
 import sys
 sys.path.append("../")
 
-from ..data.project_test.config import TestTypes, loader
+from .test_config import loader, TestTypes
 import cv2
 import rerun as rr
 import rerun.blueprint as rrb
-from ..codebase.detector import SentimentDetector
+from sentinal import Sentinal
+import numpy as np
 
-TEST_TYPE = TestTypes.VIDEO
+TEST_TYPE = TestTypes.IMAGESEQ
 
-def apply(test_type:TestTypes):
-    detector = SentimentDetector()
-    
+def apply(test_type: TestTypes):
+    detector = Sentinal()
+
+    # SDK başlatılıyor ve Viewer spawn ediliyor
     rr.init("sentiment_detection", spawn=True)
     
     # 🔵 2D layout blueprint
@@ -25,30 +26,40 @@ def apply(test_type:TestTypes):
         rrb.Blueprint(
                 rrb.Horizontal(
                     rrb.Spatial2DView(origin="image/face_detected"),
-                    rrb.Spatial2DView(origin="image/face_cropped"),
+                    rrb.Spatial2DView(origin="image/sentiment"),
                     rrb.TimeSeriesView(origin="metrics/classes"),
                     rrb.TimeSeriesView(origin="metrics/confidence"),
                 ),
         )
     )
 
-    frame_time = 0.0 # rerun time params
-    dt = 1 / 60.0   # rerun time params
+    frame_time = 0.0  # simülasyon zamanı
+    dt = 1 / 60.0     # frame süresi
+
     for real_label, frame_np in loader(test_type):
-        rr.set_time("sim_time", duration=frame_time)
-        
-        predicted_class, confidence, cropped_face_image, face_xywh, face_annotated_image = detector.apply(frame_np)
-        
-        print("Real-> ", real_label, "  Predicted-> ", predicted_class)
-        rr.log("image/face_detected", rr.Image(face_annotated_image))
-        rr.log("image/face_cropped", rr.Image(cv2.cvtColor(cropped_face_image,cv2.COLOR_BGR2RGB)))
-        
+        # Zamanı set et
+        rr.set_time("sim_time", sequence=int(frame_time))
+
+        # Detect
+        predictions, annotations = detector.detect(frame_np)
+
+        face_annotated_image = annotations[0]
+        sentiment_annotates = np.hstack([cv2.resize(im, (400,400)) for im in annotations[1:]])
+
+        # Görselleri logla
+        rr.log("image/face_detected", rr.Image(cv2.cvtColor(face_annotated_image,cv2.COLOR_BGR2RGB)))
+        rr.log("image/sentiment", rr.Image(cv2.cvtColor(sentiment_annotates, cv2.COLOR_BGR2RGB)))
+
+        # Gerçek sınıf
         rr.log("metrics/classes/real", rr.Scalars(real_label))
-        rr.log("metrics/classes/predicted", rr.Scalars(predicted_class))
-        rr.log("metrics/confidence", rr.Scalars(confidence))
-        
-        # Bir sonraki frame zamanı
+
+        # Tahminler ve confidence log
+        for i, (lbl, conf) in enumerate(predictions):
+            print(f"Real: {real_label}, Predicted: {lbl}, Conf: {conf:.2f}")
+            rr.log(f"metrics/classes/predicted/{i}", rr.Scalars(lbl))
+            rr.log(f"metrics/confidence/{i}", rr.Scalars(conf))
+
         frame_time += dt
-        
+
 if __name__ == "__main__":
     apply(TEST_TYPE)
