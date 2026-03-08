@@ -16,9 +16,9 @@ MODEL_PATH = f"{os.path.dirname(__file__)}/best.pth"
 
 # Yazı parametreleri
 FONT = cv2.FONT_HERSHEY_SIMPLEX
-FONST_SCALE_WRATIO = 500
-FONT_THICKNESS_WRATIO = 500
-TEXT_COLOR = (255,255,255)  # yeşil
+FONST_SCALE_WRATIO = 350
+FONT_THICKNESS_WRATIO = 350
+TEXT_COLOR = (255,255,255) 
 BG_COLOR = (0, 255, 0)     
 
 class SentimentClassifier:
