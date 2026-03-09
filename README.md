@@ -1,4 +1,4 @@
-# Sentinal (Sentiment Analyzer) GÖrsel Bazlı Duygu Analizi
+# Sentinal (Sentiment Analyzer) Görsel Bazlı Duygu Analizi
 
 RGB görüntüleri işleyerek sınıflandıran python paketi.
 
@@ -26,7 +26,7 @@ Testler İçin:
 - Rerun: ```conda install -c conda-forge rerun-sdk```
 
 **Uyarı**
-- Mediapipe içerisinde kullanılan yüz tespiti için gerekli tflite modülü harici olarak indirilebilir.
+- Mediapipe içerisinde kullanılan yüz tespiti için gerekli tflite modülü harici olarak indirilebilir. ![docs](https://ai.google.dev/edge/mediapipe/solutions/vision/face_detector)
 - Paket versiyonları test edilen environment'tan alınmıştır
 
 # Veri
