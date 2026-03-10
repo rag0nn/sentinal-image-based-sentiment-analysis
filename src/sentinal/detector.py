@@ -1,5 +1,5 @@
 import numpy as np
-from utils import timer
+from .utils import timer
 from .face_recognition.detect import FaceDetector
 from .sentiment_model.detect import SentimentClassifier
 from .sentiment_model.structs import ModelTypes, Models
@@ -99,6 +99,8 @@ class Sentinal:
             
         return predictions, annotations
         
+    def close(self):
+        self.face_detector.close()
         
         
         

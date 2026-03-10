@@ -4,7 +4,6 @@ import torch.nn.functional as F
 from torchvision import models
 import torch.nn as nn
 from PIL import Image
-import os
 import numpy as np
 import cv2
 import logging

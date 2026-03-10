@@ -3,3 +3,4 @@ from .sentiment_model.detect import SentimentClassifier
 from .sentiment_model.structs import *
 from .utils import *
 from .detector import Sentinal
+from .sentiment_model.structs import Models

@@ -124,3 +124,7 @@ class FaceDetector:
         
         return sorted_faces
     
+    def close(self):
+        if self.detector:
+            self.detector.close()
+            self.detector = None
