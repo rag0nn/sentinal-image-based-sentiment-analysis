@@ -6,11 +6,11 @@ ve MODEL_PATH, TEST_TYPE seçeneklerini kullanarak test eder.
 import sys
 sys.path.append("../")
 
-from .test_config import loader, TestTypes
+from test_config import loader, TestTypes
 import cv2
 import rerun as rr
 import rerun.blueprint as rrb
-from sentinal import Sentinal, Models
+from sentinal.detector import Sentinal, Models
 import numpy as np
 import logging
 TEST_TYPE = TestTypes.VIDEO

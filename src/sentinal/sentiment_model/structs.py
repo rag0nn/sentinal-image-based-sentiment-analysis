@@ -16,6 +16,10 @@ class Models(Enum):
         ModelTypes.Resnet50,
         "https://drive.google.com/uc?id=1IrOLtug-wdfmvjmv7zn6JyK8qvVqpMZc",
         f"{os.path.dirname(__file__)}/resnet_50.pth")
+    MiddleResnetConstLabel = (
+        ModelTypes.Resnet50,
+        "https://drive.google.com/uc?id=1c1yUi0aIdLZ8bbgMqxgW0cXDSUeS_Ypv",
+        f"{os.path.dirname(__file__)}/resnet_50.pth")
     HeavyResnet = (
         ModelTypes.Resnet101,
         "https://drive.google.com/uc?id=1dkN2RDT6CAU4eWyjDIVJzxnAkwErvSWo",

@@ -1,5 +1,5 @@
-from sentinal import FaceDetector
-from .test_config import loader, TestTypes
+from sentinal.face_recognition import FaceDetector
+from test_config import loader, TestTypes
 import cv2
 
 def main():
