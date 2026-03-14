@@ -12,7 +12,7 @@ import rerun.blueprint as rrb
 from sentinal.detector import Sentinal, Models
 import logging
 
-TEST_TYPE = TestTypes.VIDEO
+TEST_TYPE = TestTypes.IMAGESEQ
 WINDOW_H = 700
 
 # LOGGERS
@@ -93,4 +93,5 @@ def apply_with_cv2(test_type):
 
 
 if __name__ == "__main__":
-    apply_with_rerun(TEST_TYPE)
+    apply_with_cv2(TEST_TYPE)
+    # apply_with_rerun(TEST_TYPE)

@@ -95,16 +95,35 @@ class Sentinal:
         return predictions
     
     def visualize(self, image:np.ndarray, predictions:List[Prediction], label_dict:Dict):
-        H,W,_ = image.shape
+        output = image.copy()
+        H,W,_ = output.shape
         for pred in predictions:
             
-            # roi
+            # Overlay kopyası
+            overlay = output.copy()
+
+            # Rectangle çiz (fill)
             cv2.rectangle(
-                image, 
-                (pred.x,pred.y),
-                (pred.x+pred.w,pred.y+pred.h),
-                Colors.RED_PRIMARY.value,
-                int(min(H,W)/100))
+                overlay,
+                (pred.x, pred.y),
+                (pred.x + pred.w, pred.y + pred.h),
+                Colors.BLUE_LIGHT.value,
+                -1
+            )
+
+            # ROI alpha blend
+            alpha = 0.3
+            output[pred.y:pred.y + pred.h, pred.x:pred.x + pred.w] = cv2.addWeighted(
+                overlay[pred.y:pred.y + pred.h, pred.x:pred.x + pred.w], alpha,
+                image[pred.y:pred.y + pred.h, pred.x:pred.x + pred.w], 1 - alpha,
+                0
+            )
+            cv2.rectangle(
+                        output, 
+                        (pred.x,pred.y),
+                        (pred.x+pred.w,pred.y+pred.h),
+                        Colors.RED_PRIMARY.value,
+                        int(min(H,W)/100))
             
             #label info
             label_rect_gap = int(min(H,W)/30)
@@ -116,7 +135,7 @@ class Sentinal:
             
             # label ractangle
             cv2.rectangle(
-                image,
+                output,
                 (pred.x,pred.y),
                 (pred.x+text_width+label_rect_gap, pred.y+text_height+label_rect_gap),
                 Colors.RED_PRIMARY.value,
@@ -125,7 +144,7 @@ class Sentinal:
             
             # label
             cv2.putText(
-                image,
+                output,
                 lbl,
                 (pred.x+int(label_rect_gap/2),pred.y+text_height+int(label_rect_gap/2)),
                 font,
@@ -134,7 +153,7 @@ class Sentinal:
                 font_thickness
                 )
             
-        return image
+        return output
             
     def close(self):
         self.face_detector.close()
