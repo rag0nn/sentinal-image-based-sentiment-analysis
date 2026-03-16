@@ -6,6 +6,7 @@ ve MODEL_PATH, TEST_TYPE seçeneklerini kullanarak test eder.
 
 from test_config import loader, TestTypes
 from sentinal.sentiment_model.structs import EMOTION_DICT, EMOTION_DICT_TR
+from sentinal.utils import timer
 import cv2
 import rerun as rr
 import rerun.blueprint as rrb
@@ -47,7 +48,7 @@ def apply_with_rerun(test_type: TestTypes):
 
         # Detect
         predictions = detector.detect(frame_np)
-        annotated = detector.visualize(frame_np.copy(),predictions,EMOTION_DICT_TR)
+        annotated = timer(detector.visualize)(frame_np.copy(),predictions,EMOTION_DICT_TR)
         
         # Görselleri logla
         rr.log("image/annotated", rr.Image(cv2.cvtColor(annotated,cv2.COLOR_BGR2RGB)))
@@ -70,7 +71,7 @@ def apply_with_cv2(test_type):
     for real_label, frame_np in loader(test_type):
         # Detect
         predictions = detector.detect(frame_np)
-        annotated = detector.visualize(frame_np.copy(),predictions,EMOTION_DICT_TR)
+        annotated = timer(detector.visualize)(frame_np.copy(),predictions,EMOTION_DICT_TR)
         # Tahminler ve confidence log
         for i, pred in enumerate(predictions):
             print(f"Real: {real_label}, Predicted: {pred.pred_lbl}, Conf: {pred.conf:.2f}")        
