@@ -37,16 +37,22 @@ urllib.request.urlretrieve(url, "detector.tflite")
 # Veri
 
 - Affectnet41k [Veri seti linki](https://huggingface.co/datasets/ValerianFourel/AffectNetDiffusion-Annotations-Render-And-Images) (28699): 
-    | Etiket | Görsel Sayısı|
-    | ----- | ----- |
-    | (Neutral) | 4194 |
-    | (Happy) | 6958 |
-    | (Sad) | 2964 |
-    | (Surprise) | 2968 |
-    | (Fear) | 2944 |
-    | (Disgust) | 2838 |
-    | (Anger) | 2962 |
-    | (Contempt) | 2871 |
+
+- FER-2013 (Kaynak)[https://www.kaggle.com/datasets/msambare/fer2013]
+- Memotion (Filtrelenmiş) [Kaynak](https://www.kaggle.com/datasets/williamscott701/memotion-dataset-7k)
+- RAF-DB [Kaynak](https://www.kaggle.com/datasets/shuvoalok/raf-db-dataset?select=DATASET)
+
+| Etiket | Görsel Sayısı|
+| ----- | ----- |
+| (Neutral) | 10788 |
+| (Happy) | 17564 |
+| (Sad) | 8838 |
+| (Surprise) | 6785 |
+| (Fear) | 6805 |
+| (Disgust) | 3915 |
+| (Anger) | 7158 |
+| (Contempt) | 2929 |
+
 - 9 Facial (eklenecek)
 
 # Model
@@ -55,6 +61,7 @@ urllib.request.urlretrieve(url, "detector.tflite")
 | --- | --- | --- | --- | --- |
 | Resnet101 | ~ 170MB | 42.8 M | 94.26 | 0.9395 |
 | Resnet50 | ~ 94.4MB | 23.9 M | 95.64 | 0.9566 |
+| MobilenetSmall | ~ 18.5MB| 2.4 M | XX | XX |
 
 # Model Eğitimi
 
