@@ -21,16 +21,39 @@ class SentimentClassifier:
     def __init__(self, 
                  model_type:ModelTypes, 
                  model_path:str,
+                 gray_prediction,
                  device=None):
         """
         Duygu sınıflandırması yapan model
         Args:
             model_type (ModelTypes) : One of the [ModelTypes] model types,
             model_path (str, Optional) : Model '.pth' path. 
+            gray_predction (bool) : Prediction scale
             device (str, Optional): cpu, cude etc.
         """
         self.model_type = model_type
         self.model_path = model_path
+        self.gray_prediction = gray_prediction
+        # dönüşümler
+        if gray_prediction:
+            self.transform = transforms.Compose([
+                transforms.Grayscale(num_output_channels=3),
+                transforms.Resize((224, 224)),
+                transforms.ToTensor(),
+                transforms.Normalize(
+                    mean=[0.485, 0.456, 0.406],
+                    std=[0.229, 0.224, 0.225]
+                )
+            ])
+        else:
+            self.transform = transforms.Compose([
+                transforms.Resize((224, 224)),
+                transforms.ToTensor(),
+                transforms.Normalize(
+                    mean=[0.485, 0.456, 0.406],
+                    std=[0.229, 0.224, 0.225]
+                )
+            ])
         self.model, self.device = self._load_model(device) 
     
     def _load_model(self, device=None):
@@ -83,18 +106,9 @@ class SentimentClassifier:
         """
             
         image = Image.fromarray(image)
-        # dönüşümler
-        transform = transforms.Compose([
-            transforms.Resize((224, 224)),
-            transforms.ToTensor(),
-            transforms.Normalize(
-                mean=[0.485, 0.456, 0.406],
-                std=[0.229, 0.224, 0.225]
-            )
-        ])
 
         # dönüşümler uygula
-        input_tensor = transform(image).unsqueeze(0).to(self.device)
+        input_tensor = self.transform(image).unsqueeze(0).to(self.device)
 
         # tahmin et ve output'ları uyarla
         with torch.no_grad():
@@ -107,7 +121,7 @@ class SentimentClassifier:
         if verbose:
             logging.info(f"Prediction label: {predicted_class} conf: {confidence}")
             
-        return predicted_class, confidence
+        return predicted_class, confidence, probabilities
     
     def visualize(self, image: np.ndarray, predicted_class: int, confidence: float, lang: str = "tr") -> np.ndarray:
         """

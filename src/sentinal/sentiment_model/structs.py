@@ -11,7 +11,8 @@ class ModelTypes(Enum):
     Resnet50 = "resnet50"
     Resnet101 = "resnet101"
     MobileSmall = "mobile_small"
-
+    MobileLarge = "mobile_large"
+    
 class Models(Enum):
     MiddleResnet = (
         ModelTypes.Resnet50,
@@ -27,8 +28,13 @@ class Models(Enum):
         f"{os.path.dirname(__file__)}/resnet_101.pth")
     MobileSmall = (
         ModelTypes.MobileSmall,
-        "",
+        "https://drive.google.com/uc?id=1O7URGuUxbaKBK_QDLUj5hEq_e7svVeUc",
         f"{os.path.dirname(__file__)}/mobile_small.pth"
+    )
+    MobileLarge = (
+        ModelTypes.MobileLarge,
+        "",
+        f"{os.path.dirname(__file__)}/mobile_large.pth"
     )
 
 EMOTION_DICT = {

@@ -1,4 +1,4 @@
-# Sentinal (Sentiment Analyzer) Görsel Bazlı Duygu Analizi
+# Görsel Bazlı Duygu Analizi | Sentinal (Sentiment Analyzer) 
 
 RGB görüntüleri işleyerek sınıflandıran python paketi.
 
@@ -59,9 +59,7 @@ urllib.request.urlretrieve(url, "detector.tflite")
 
 | Model | Boyut | Parametre | Accuracy | Macro-F1 |
 | --- | --- | --- | --- | --- |
-| Resnet101 | ~ 170MB | 42.8 M | 94.26 | 0.9395 |
-| Resnet50 | ~ 94.4MB | 23.9 M | 95.64 | 0.9566 |
-| MobilenetSmall | ~ 18.5MB| 2.4 M | XX | XX |
+| MobilenetSmall | ~ 18.5MB| 2.4 M | XX | 0.66 |
 
 # Model Eğitimi
 
