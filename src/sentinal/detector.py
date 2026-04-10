@@ -164,40 +164,45 @@ class Sentinal:
                 for image in images:
                     if not isinstance(image, np.ndarray):
                         raise TypeError("Element must be np.ndarray")
+
             if isinstance(images, np.ndarray):
-                images = [images]
+                return [images]
             elif isinstance(images, tuple):
                 images = list(images)
                 _check_sub_elements(images)
+                return images
             elif isinstance(images, list):
                 _check_sub_elements(images)
+                return images
             else:
                 raise TypeError("Images must be np.ndarray or list of np.ndarray")
-        _check_element(images)
+
+        images = _check_element(images)
         
         # face recognition
-        faces = {}
-        [faces.update({i : {"ims" : [], "preds" : [], "x" : [], "y":[],"w":[],"h":[]} }) for i in range(len(images))]
+        faces = {
+            i: {"ims": [], "preds": [], "x": [], "y": [], "w": [], "h": []}
+            for i in range(len(images))
+        }
         for i, image in enumerate(images):
  
             detections = self.face_detector.detect_face(image)
             detections = self.face_detector.add_margin(image, detections)
             face_images = self.face_detector.crop_faces(image, detections)
+            f = faces[i]
             for face,detection in zip(face_images, detections.detections): 
                 
                 bbox = detection.bounding_box   
-                faces[i]["ims"].append(face)
-                faces[i]["x"].append(bbox.origin_x)
-                faces[i]["y"].append(bbox.origin_y)
-                faces[i]["w"].append(bbox.width)
-                faces[i]["h"].append(bbox.height)
+                f["ims"].append(face)
+                f["x"].append(bbox.origin_x)
+                f["y"].append(bbox.origin_y)
+                f["w"].append(bbox.width)
+                f["h"].append(bbox.height)
                 
         # sentiment recogniton
-        pfaces, pindexes = [],[]
-        for k, v in faces.items():
-            for i, im in enumerate(v["ims"]):
-                pfaces.append(im)
-                pindexes.append((k,i))
+        pfaces = [im for k, v in faces.items() for im in v["ims"]]
+        pindexes = [(k, i) for k, v in faces.items() for i in range(len(v["ims"]))]
+        
         results = self.sentiment_model.predict(pfaces)
         
         for (i1, i2), (predicted_class, confidence, probabilities) in zip(pindexes, results):
@@ -206,7 +211,7 @@ class Sentinal:
                 probs = probabilities.detach().cpu().numpy()
             else:
                 probs = probabilities
-            if type(probs) != np.ndarray:
+            if not isinstance(probs, np.ndarray):
                 logging.error(f"Probs type error: {type(probs)}")
                 return TypeError("Probs must be np.ndarray")
             probs = probs.squeeze()
@@ -227,9 +232,7 @@ class Sentinal:
                 )
             )
         
-        output = []
-        for k,v in faces.items():
-            output.append(v["preds"])
+        output = [v["preds"] for v in faces.values()]
             
         return output
     

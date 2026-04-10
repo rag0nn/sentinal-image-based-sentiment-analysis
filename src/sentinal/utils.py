@@ -8,14 +8,17 @@ def timer(func):
     def outer(*args, **kwargs):
         start_time = time.time()
         
-        def inner():
-            return func(*args, **kwargs)
+        result = func(*args, **kwargs)
         
-        result = inner()
-        end_time = time.time()
-        logging.info(f"'{func.__name__}' fonksiyonu {end_time - start_time:.6f} saniye sürdü.")
+        elapsed = time.time() - start_time
+        
+        outer.last_elapsed = elapsed 
+        
+        logging.info(f"{func.__name__} {elapsed:.6f} saniye sürdü.")
+        
         return result
-
+    
+    outer.last_elapsed = None
     return outer
 
 def notify(title, message):

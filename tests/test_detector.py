@@ -71,6 +71,7 @@ def apply_with_cv2(test_type):
     frame_time = 0
     old_one = None
     stabilizer = Stabilizer(8)
+    mean_detection_time = 0
     for real_label, frame_np in loader(test_type):
         # Multiple paralelled inference handle
         if old_one is None:
@@ -78,8 +79,11 @@ def apply_with_cv2(test_type):
             continue
         
         # detect
-        # results = detector.detect([frame_np])
-        results = detector.detect([frame_np, old_one])
+        results = detector.detect([frame_np])
+        # results = detector.detect([frame_np, old_one])
+        duration = detector.detect.last_elapsed
+        mean_detection_time += duration
+        
         anoos = []
         for i, result in enumerate(results):
             if i == 0: # stabilization
@@ -117,6 +121,10 @@ def apply_with_cv2(test_type):
         frame_time += 1
         
         old_one = frame_np
+        if frame_time == 100:
+            break
+    mean_detection_time = mean_detection_time / frame_time
+    print(f"Ortalama detection süresi ({frame_time} görsel için): {mean_detection_time}")
 
 
 if __name__ == "__main__":
