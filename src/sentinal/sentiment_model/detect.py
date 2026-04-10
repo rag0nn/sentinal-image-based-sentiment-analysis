@@ -1,3 +1,5 @@
+from typing import List, Tuple, Union
+
 import torch
 import torchvision.transforms as transforms
 import torch.nn.functional as F
@@ -95,33 +97,55 @@ class SentimentClassifier:
         model.eval()
         return model, device
 
-    def predict(self, image:np.ndarray, verbose=True):
+    def predict(self, images: Union[List[np.ndarray],np.ndarray], verbose=False) -> List[Tuple]:
         """
-        Görseldeki duyguyu tahmin eder,
+        Predict sentiment for a single image or a list of images.
+
         Args:
-            image: input image
+            images (np.ndarray or list[np.ndarray]): Single image or a list of images.
+            verbose (bool, optional): If True, prints prediction info. Default is False.
+
         Returns:
-            predicted_class (int): f
-            confidence (float): f
+            list[Tuple[int, float, torch.Tensor]]: 
+                Each tuple contains (predicted_class, confidence, probabilities) for each image.
         """
+        # type check
+        if isinstance(images,np.ndarray):
+            images = [images]
+        elif isinstance(images, tuple):
+            images = list(images)
+        elif not isinstance(images, list):
+            raise TypeError("images must be np.ndarray or list/tuple of np.ndarray")
             
-        image = Image.fromarray(image)
+        for img in images:
+            if not isinstance(img, np.ndarray):
+                raise TypeError("All items in images must be np.ndarray")
+            
+        # batch & prediction    
+        pil_images = [Image.fromarray(img) for img in images]
+        
+        tensors = [self.transform(img) for img in pil_images]
+        input_tensor = torch.stack(tensors).to(self.device)  # (B, C, H, W)
 
-        # dönüşümler uygula
-        input_tensor = self.transform(image).unsqueeze(0).to(self.device)
-
-        # tahmin et ve output'ları uyarla
         with torch.no_grad():
             output = self.model(input_tensor)
             probabilities = F.softmax(output, dim=1)
 
-            predicted_class = torch.argmax(probabilities, dim=1).item()
-            confidence = probabilities[0][predicted_class].item()
+            predicted_classes = torch.argmax(probabilities, dim=1)
+            confidences = probabilities.max(dim=1).values
 
-        if verbose:
-            logging.info(f"Prediction label: {predicted_class} conf: {confidence}")
-            
-        return predicted_class, confidence, probabilities
+        results = []
+        for i in range(len(images)):
+            pred = predicted_classes[i].item()
+            conf = confidences[i].item()
+            probs = probabilities[i]
+
+            if verbose:
+                logging.info(f"[{i}] Prediction: {pred}, conf: {conf}")
+
+            results.append((pred, conf, probs))
+
+        return results
     
     def visualize(self, image: np.ndarray, predicted_class: int, confidence: float, lang: str = "tr") -> np.ndarray:
         """

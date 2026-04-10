@@ -10,8 +10,9 @@ from sentinal.utils import timer
 import cv2
 import rerun as rr
 import rerun.blueprint as rrb
-from sentinal.detector import Sentinal, Models
+from sentinal.detector import Sentinal, Models, Stabilizer
 import logging
+import numpy as np
 
 TEST_TYPE = TestTypes.VIDEO
 WINDOW_H = 700
@@ -66,20 +67,43 @@ def apply_with_rerun(test_type: TestTypes):
 
 
 def apply_with_cv2(test_type):
-    detector = Sentinal(Models.MobileSmall, use_stabilizer=True)
+    detector = Sentinal(Models.MobileSmall)
     frame_time = 0
+    old_one = None
+    stabilizer = Stabilizer(8)
     for real_label, frame_np in loader(test_type):
-        # Detect
-        predictions = detector.detect(frame_np)
-        annotated = timer(detector.visualize)(frame_np.copy(),predictions,EMOTION_DICT_TR)
+        # Multiple paralelled inference handle
+        if old_one is None:
+            old_one = frame_np
+            continue
+        
+        # detect
+        # results = detector.detect([frame_np])
+        results = detector.detect([frame_np, old_one])
+        anoos = []
+        for i, result in enumerate(results):
+            if i == 0: # stabilization
+                stable_class, stable_conf = stabilizer.update(result[0])
+            annotated = timer(detector.visualize)(frame_np.copy(),result,EMOTION_DICT_TR)
+
+            # cv2.putText(annotated,f"{i}",(50,100),cv2.FONT_HERSHEY_DUPLEX,2.9,(0,255,0),2)
+            anoos.append(annotated)
+            
         # Tahminler ve confidence log
-        for i, pred in enumerate(predictions):
-            print(f"Real: {real_label}, Predicted: {pred.pred_lbl}, Conf: {pred.conf:.2f}")        
+        for i, result in enumerate(results):
+            for pred in result:
+                print(f"[{i}] Real: {real_label}, Predicted: {pred.pred_lbl}, Conf: {pred.conf:.2f}") 
+                
+        # output show resize      
         h,w,_ = frame_np.shape
         ratio = w/h
         new_w = int(ratio * WINDOW_H)
-        annotated = cv2.resize(annotated, (new_w,WINDOW_H))
-        cv2.imshow("Annotated", annotated)            
+        anoos = [cv2.resize(anno, (new_w,WINDOW_H)) for anno in anoos]
+            
+        annomerged = np.hstack(anoos)
+        
+        # göster
+        cv2.imshow("Annotated", annomerged)            
         if test_type == TestTypes.IMAGESEQ:
             key = cv2.waitKey(0)
             if key == ord("q"):
@@ -91,6 +115,8 @@ def apply_with_cv2(test_type):
             if key == ord("q"):
                 break
         frame_time += 1
+        
+        old_one = frame_np
 
 
 if __name__ == "__main__":

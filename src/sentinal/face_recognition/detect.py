@@ -29,8 +29,9 @@ class FaceDetector:
         Args:
             image: Numpy.ndarray resim objesi
         Returns:
-            rgb_annotated_image : Image
-            detection_result : Results
+            Tuple[Image, Results]:
+                - rgb_annotated_image: Annotated görüntü.
+                - detection_result: Tespit sonuçları.
         """
         # Resmi Yükle
         mp_image = mp.Image(

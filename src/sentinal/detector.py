@@ -3,7 +3,7 @@ from .utils import timer, Colors
 from .face_recognition.detect import FaceDetector
 from .sentiment_model.detect import SentimentClassifier
 from .sentiment_model.structs import ModelTypes, Models
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Union
 import logging
 import gdown
 import os
@@ -35,17 +35,13 @@ class Prediction:
         self.conf = conf
         self.pred_lbl = pred_lbl
         self.real_lbl = real_lbl
-        self.probabilites = probabilities
+        self.probabilities = probabilities
         self.stabilized_conf = stabilized_conf
         self.stabilized_label = stabilized_label
         
         
     def __repr__(self):
         return f"({self.x},{self.y},{self.w},{self.h}) {self.conf} {self.pred_lbl} {self.real_lbl}"
-  
-  
-
-
 
 class Stabilizer:
     def __init__(
@@ -66,11 +62,20 @@ class Stabilizer:
         self.last_label = None
         self.last_change_time = 0.0
 
-    def update(self, probs):
+    def update(self, prediction: Prediction):
         """
-        probabilities: torch tensor veya numpy array (shape: [num_classes])
+        Args:
+            prediction (Prediction): Prediction
+        Returns:
+            Tuple[int, float]:
+                - stabilized_label (int): Label index
+                - stabilized_confidence (float): Label confidence
         """
         # --- EMA ---
+        probs = prediction.probabilities
+        if isinstance(probs, list):
+            probs = np.array(probs)
+            
         if self.ema is None:
             self.ema = probs
         else:
@@ -102,14 +107,16 @@ class Stabilizer:
                 # confidence çok düştüyse bile hemen değiştirme
                 pass
 
-        return self.last_label, float(self.ema[self.last_label])
+        stabilized_conf = float(self.ema[self.last_label])
+        prediction.stabilized_label = self.last_label
+        prediction.stabilized_conf = stabilized_conf
+        return self.last_label, stabilized_conf
           
 class Sentinal:
     
     def __init__(self, sentiment_model:Models = None,
                  device = None,
                  grayscale_prediction = True,
-                 use_stabilizer = True,
                  ):        
         if sentiment_model is not None:
             global CHOSEN_MODEL
@@ -127,9 +134,8 @@ class Sentinal:
             self.grayscale_prediction,
             device)
         self.face_detector = FaceDetector()
-        self.use_stabilizer = use_stabilizer
-        if self.use_stabilizer:
-            self.stabilizer = Stabilizer(8)
+        # if self.use_stabilizer:
+        #     self.stabilizer = Stabilizer(8)
         logging.info(f"Graysacle Prediction: {self.grayscale_prediction}")
     
     def _check_models(self, local_path, remote_path):
@@ -143,53 +149,89 @@ class Sentinal:
                 raise Exception(f"{e} Error occured when downloading model file")
             logging.info("Model file downloaded successfully")
 
-
     @timer
-    def detect(self, image: np.ndarray) -> List[Prediction]:
+    def detect(self, images: Union[np.ndarray, List[np.ndarray]]) -> List[List[Prediction]]:
         """
         Verilen görüntüdei yüzleri bulur ve duygularını tahmin eder.
         Args:
-            image: input image
+            images (np.ndarray, list[np.ndarray]): input image
         Returns:
-            predictions: conjugated tuples of predictions like (label, conf)
-            annotations: annotations of process, first one is face annotation others sentiment annotations
+            predictions (list[list[Prediction]]): list of predictions for each image input
         """
-        predictions = []
+        # type checks & converting to list "images"
+        def _check_element(images):
+            def _check_sub_elements(images):
+                for image in images:
+                    if not isinstance(image, np.ndarray):
+                        raise TypeError("Element must be np.ndarray")
+            if isinstance(images, np.ndarray):
+                images = [images]
+            elif isinstance(images, tuple):
+                images = list(images)
+                _check_sub_elements(images)
+            elif isinstance(images, list):
+                _check_sub_elements(images)
+            else:
+                raise TypeError("Images must be np.ndarray or list of np.ndarray")
+        _check_element(images)
         
         # face recognition
-        results = self.face_detector.detect_face(image)
-        results = self.face_detector.add_margin(image,results)
-        face_images = self.face_detector.crop_faces(image, results)
+        faces = {}
+        [faces.update({i : {"ims" : [], "preds" : [], "x" : [], "y":[],"w":[],"h":[]} }) for i in range(len(images))]
+        for i, image in enumerate(images):
+ 
+            detections = self.face_detector.detect_face(image)
+            detections = self.face_detector.add_margin(image, detections)
+            face_images = self.face_detector.crop_faces(image, detections)
+            for face,detection in zip(face_images, detections.detections): 
+                
+                bbox = detection.bounding_box   
+                faces[i]["ims"].append(face)
+                faces[i]["x"].append(bbox.origin_x)
+                faces[i]["y"].append(bbox.origin_y)
+                faces[i]["w"].append(bbox.width)
+                faces[i]["h"].append(bbox.height)
+                
+        # sentiment recogniton
+        pfaces, pindexes = [],[]
+        for k, v in faces.items():
+            for i, im in enumerate(v["ims"]):
+                pfaces.append(im)
+                pindexes.append((k,i))
+        results = self.sentiment_model.predict(pfaces)
+        
+        for (i1, i2), (predicted_class, confidence, probabilities) in zip(pindexes, results):
+            # probalities (for stabilization) tensor → numpy
+            if hasattr(probabilities, "detach"):
+                probs = probabilities.detach().cpu().numpy()
+            else:
+                probs = probabilities
+            if type(probs) != np.ndarray:
+                logging.error(f"Probs type error: {type(probs)}")
+                return TypeError("Probs must be np.ndarray")
+            probs = probs.squeeze()
+            probs = probs.tolist()
 
-        # sentiment analysis
-        for face, detection in zip(face_images, results.detections):
-            pred, conf, probabilities = self.sentiment_model.predict(face)
-            
-            stable_class = None
-            stable_conf = None
-            probs = None
-            if self.use_stabilizer:
-                # probalities (for stabilization) tensor → numpy
-                if hasattr(probabilities, "detach"):
-                    probs = probabilities.detach().cpu().numpy()
-                else:
-                    probs = probabilities
-                probs = probs.ravel()
-                
-                stable_class, stable_conf = self.stabilizer.update(probs)
-                
-            bbox = detection.bounding_box
-            
-            predictions.append(
+            faces[i1]["preds"].append(
                 Prediction(
-                    bbox.origin_x,bbox.origin_y,bbox.width,bbox.height,
-                    conf,pred, 
-                    probs,stable_conf,stable_class)
+                    x=faces[i1]["x"][i2],
+                    y=faces[i1]["y"][i2],
+                    w=faces[i1]["w"][i2],
+                    h=faces[i1]["h"][i2],
+                    conf=confidence,
+                    pred_lbl=predicted_class,
+                    probabilities=probs,
+                    stabilized_conf=None,
+                    stabilized_label=None,
+                    real_lbl=None
+                )
             )
+        
+        output = []
+        for k,v in faces.items():
+            output.append(v["preds"])
             
-        logging.info(f"Founded {len(predictions)} faces")
-            
-        return predictions
+        return output
     
     def visualize(self, image:np.ndarray, predictions:List[Prediction], label_dict:Dict):
         output = image.copy()

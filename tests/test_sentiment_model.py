@@ -6,7 +6,7 @@ import time
 def main():
     model_type = ModelTypes.MobileSmall
     model_path=  "/home/enes/Desktop/sentiment-analysis/sentinal/src/sentinal/sentiment_model/mobile_small.pth"
-    cs = SentimentClassifier(model_type,model_path)
+    sc = SentimentClassifier(model_type,model_path,True)
     
     counter = 0
     test_type = TestTypes.VIDEO
@@ -16,8 +16,9 @@ def main():
         image = cv2.resize(image,(500 ,800))
 
         h,w,_ = image.shape
-        pred, conf = cs.predict(image)
-        annotated = cs.visualize(image,pred,conf,"tr")
+        results = sc.predict(image)
+        pred, conf, probabilities = results[0]
+        annotated = sc.visualize(image,pred,conf,"tr")
         print(f"label: {label}, image: {image.shape}, pred_label: {pred}, conf: {conf}")
         
         if pred == label:
